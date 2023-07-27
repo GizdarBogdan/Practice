@@ -1,0 +1,41 @@
+﻿<RadzenCard>
+    <RadzenTextBox @bind-Value=newEvent.Text/>
+    <RadzenFileInput TValue="string" ValueChanged="imageStr=>UpdateImageToDB(imageStr, newEvent)"
+                     Error="a=>ErrorHandle(a)" Value=GetPathFromBytes(newEvent.PhotoBytes) />
+    <RadzenButton Text="Save" Click="DialogSaveButton" />
+    <RadzenButton Text="Cancel" Click="() => ds.Close(false)" />
+</RadzenCard>
+
+@code {
+    Event newEvent = new() { Id = default };
+    [Parameter]
+    public DialogService ds { get; set; }
+    [Parameter]
+    public MyEventDbContext context{ get; set; }
+    void DialogSaveButton()
+    {
+        context.Add(new Event (){Text = newEvent.Text, PhotoBytes=newEvent.PhotoBytes});
+        context.SaveChanges();
+        StateHasChanged();
+        ds.Close(true);
+    }
+    void UpdateImageToDB(string newImageStr, Event myEvent)
+    {
+        if (newImageStr is null)
+        {
+            myEvent.PhotoBytes = null;
+        }
+        else
+        {
+            myEvent.PhotoBytes = Convert.FromBase64String(newImageStr[(newImageStr.IndexOf(',') + 1)..]);
+        }
+    }
+    string GetPathFromBytes(byte[]? arr)
+    {
+        return arr is null ? string.Empty : $"data:image/jpeg;base64,{Convert.ToBase64String(arr)}";
+    }
+    void ErrorHandle(UploadErrorEventArgs e)
+    {
+        Console.WriteLine(e.Message);
+    }
+}

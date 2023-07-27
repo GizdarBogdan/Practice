@@ -1,0 +1,92 @@
+﻿@page "/eventsdata"
+@inject MyEventDbContext context
+@inject DialogService dialogService
+
+<RadzenButton Text="Add" Click="ShowInlineDialog" />
+<RadzenDataList TItem="Event" WrapItems="true" Data="@events">
+    <Template Context="myEvent">
+        <RadzenCard Style="width:400px; display:flex">
+            @if (myEvent != editableEvent)
+            {
+                <RadzenImage Style="max-width:300px" Path=@GetPathFromBytes(myEvent.PhotoBytes) />
+                <div>
+                    @myEvent.Text
+                    <br />
+                    <RadzenButton Icon="edit" Click="()=>EditButton(myEvent)" />
+                    <RadzenButton Text="X" Click="()=>DeleteButton(myEvent)" />
+                </div>
+            }
+            else
+            {
+                <RadzenFileInput TValue="string" ValueChanged="imageStr=>UpdateImageToDB(imageStr, myEvent)"
+                                 Error="a=>ErrorHandle(a)" Value=GetPathFromBytes(myEvent.PhotoBytes) />
+                <div>
+                    <RadzenTextBox @bind-Value=myEvent.Text />
+                    <br />
+                    <RadzenButton Text="S" Click="()=>SaveButton(myEvent)" />
+                    <RadzenButton Text="C" Click="CancelEditButton" />
+                </div>
+            }
+        </RadzenCard>
+    </Template>
+</RadzenDataList>
+
+
+@code {
+    async Task ShowInlineDialog()
+    {
+        var result = await dialogService.OpenAsync("Simple Dialog", ds =>
+            @<NewEventDialog ds=@ds context=@context/>
+        );
+    }
+    RadzenDataGrid<Event> eventGrid;
+    IQueryable<Event> events;
+    Event editableEvent = null;
+    void CancelEditButton()
+    {
+        editableEvent = null;
+    }
+    string GetPathFromBytes(byte[]? arr)
+    {
+        return arr is null ? string.Empty : $"data:image/jpeg;base64,{Convert.ToBase64String(arr)}";
+    }
+    void SaveButton(Event myEvent)
+    {
+        context.Update(myEvent);
+        context.SaveChanges();
+        editableEvent = null;
+        StateHasChanged();
+    }
+    void EditButton(Event myEvent)
+    {
+        editableEvent = myEvent;
+    }
+    void DeleteButton(Event myEvent)
+    {
+        context.Events.Remove(myEvent);
+        context.SaveChanges();
+        StateHasChanged();
+    }
+    void UpdateImageToDB(string newImageStr, Event myEvent)
+    {
+        if (newImageStr is null)
+        {
+            myEvent.PhotoBytes = null;
+        }
+        else
+        {
+            myEvent.PhotoBytes = Convert.FromBase64String(newImageStr[(newImageStr.IndexOf(',') + 1)..]);
+        }
+        context.Update(myEvent);
+        context.SaveChanges();
+    }
+    void ErrorHandle(UploadErrorEventArgs e)
+    {
+        Console.WriteLine(e.Message); 
+    }
+    protected override void OnInitialized()
+    {
+        events = context.Events;
+    }
+}
+
